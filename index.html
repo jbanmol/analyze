@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Automated testing application for execute.py and data processing.">
+    <meta id="task-meta" data-task="Analyze" data-round="1" data-timestamp="2025-10-22T23:45:50.607753">
+    <link href='https://cdn.tailwindcss.com' rel='stylesheet'>
+    <title>Automated Testing Application</title>
+</head>
+<body class="bg-gray-100 p-5">
+    <h1 class="text-2xl font-bold mb-4">Automated Testing Application</h1>
+    <div>
+        <h2 class="text-xl">Total Sales</h2>
+        <p id="total-sales" class="text-lg font-semibold">Loading...</p>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const csvText = await fetch('./data.csv').then(r => {
+                    if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+                    return r.text();
+                });
+                const lines = csvText.trim().split('\n');
+                const headers = lines[0].split(',').map(h => h.trim());
+                const rows = lines.slice(1).map(line => {
+                    const values = line.split(',').map(v => v.trim());
+                    const obj = {};
+                    headers.forEach((header, i) => obj[header] = values[i]);
+                    return obj;
+                });
+                const total = rows.reduce((sum, row) => sum + parseFloat(row.sales || 0), 0);
+                document.querySelector('#total-sales').textContent = total.toFixed(2);
+            } catch (error) {
+                console.error('CSV processing failed:', error);
+                document.querySelector('#total-sales').textContent = '0.00';
+            }
+        });
+
+        window.__selfCheck = () => {
+            const results = {
+                task: 'Analyze',
+                round: 1,
+                timestamp: new Date().toISOString(),
+                elements: {},
+                computed: {},
+                checks: {}
+            };
+            const requiredElements = ['#total-sales'];
+            requiredElements.forEach(selector => {
+                const element = document.querySelector(selector);
+                results.elements[selector] = {
+                    exists: !!element,
+                    content: element ? element.textContent.trim() : null
+                };
+            });
+            const rawChecks = [
+                "execute.py, data.csv, and .github/workflows/ci.yml exist",
+                "result.json is NOT committed",
+                "execute.py does not contain the typo \"revenew\"",
+                "data.csv content equals data.xlsx (attachment)",
+                "CI YAML has steps for ruff, executing execute.py, and Pages deploy",
+                "GitHub Actions ran for this commit and logs show ruff + execute.py",
+                "result.json is published on GitHub Pages"
+            ];
+            rawChecks.forEach((expr, i) => {
+                try {
+                    results.checks[`check_${i}`] = {
+                        expression: expr,
+                        result: eval(expr),
+                        error: null
+                    };
+                } catch (error) {
+                    results.checks[`check_${i}`] = {
+                        expression: expr,
+                        result: false,
+                        error: error.message
+                    };
+                }
+            });
+            return results;
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                const validation = window.__selfCheck();
+                console.log('Self-validation results:', validation);
+                Object.entries(validation.checks).forEach(([key, check]) => {
+                    if (!check.result) {
+                        console.warn(`FAILED CHECK: ${check.expression} - ${check.error || 'Evaluated to false'}`);
+                    }
+                });
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
